@@ -4,18 +4,19 @@ class UserData {
   String? type;
   String? name;
   String? location;
-  String? photo;
+  String? currentLocation;
   String? phone;
   String? lati;
+  String? currentLati;
   String? longi;
-  String gender;
-  String? BloodType;
+  String? currentLongi;
+  String? gender;
+  String? bloodType;
   String? age;
   String? occupation;
+  String? joinDate;
   bool vaccinated;
-  int? dose;
-  String? dateOfVaccination;
-  String? vaccineType;
+  VaccineData? vaccineData;
 
   UserData({
     this.email,
@@ -23,11 +24,30 @@ class UserData {
     this.location,
     this.name,
     this.type,
-    this.photo,
     this.phone,
     this.lati,
     this.longi,
-    this.gender = 'unknown',
+    this.gender,
+    this.vaccineData,
     this.vaccinated = false,
+    this.age,
+    this.occupation,
+    this.bloodType,
+    this.currentLati,
+    this.currentLocation,
+    this.currentLongi,
+    this.joinDate,
+  });
+}
+
+class VaccineData {
+  String dose;
+  String dateOfVaccination;
+  String vaccineType;
+
+  VaccineData({
+    required this.dose,
+    required this.dateOfVaccination,
+    required this.vaccineType,
   });
 }

@@ -1,4 +1,8 @@
+import 'package:covid_app/screens/diseases_screen.dart';
+import 'package:covid_app/screens/location_screen.dart';
 import 'package:covid_app/screens/patient_profile_screen.dart';
+import 'package:covid_app/screens/symptoms_screen.dart';
+import 'package:covid_app/screens/test_result_screen.dart';
 import 'package:covid_app/widgets/grid_item_widget.dart';
 import 'package:flutter/material.dart';
 
@@ -19,19 +23,24 @@ class PatientHomeWidget extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
                 GridItemWidget(
-                    context: context,
-                    iconData: Icons.health_and_safety_outlined,
-                    primaryColor: Colors.green,
-                    secondaryColor: Colors.green[900]!,
-                    text: "Symptoms",
-                    onPressed: () {}),
+                  context: context,
+                  iconData: Icons.health_and_safety_outlined,
+                  primaryColor: Colors.green,
+                  secondaryColor: Colors.green[900]!,
+                  text: "Symptoms",
+                  onPressed: () {
+                    Navigator.of(context).pushNamed(SymptomsScreen.routeName);
+                  },
+                ),
                 GridItemWidget(
                     context: context,
                     iconData: Icons.coronavirus,
                     primaryColor: Colors.yellow,
                     secondaryColor: Colors.yellow[900]!,
                     text: "Diseases",
-                    onPressed: () {}),
+                    onPressed: () {
+                      Navigator.of(context).pushNamed(DiseasesScreen.routeName);
+                    }),
               ],
             ),
             const SizedBox(height: 16.0),
@@ -44,7 +53,9 @@ class PatientHomeWidget extends StatelessWidget {
                   primaryColor: Colors.lightBlue,
                   secondaryColor: Colors.blue[900]!,
                   text: "Test Results",
-                  onPressed: () {},
+                  onPressed: () {
+                    Navigator.of(context).pushNamed(TestResultScreen.routeName);
+                  },
                 ),
                 GridItemWidget(
                   context: context,
@@ -66,7 +77,9 @@ class PatientHomeWidget extends StatelessWidget {
               primaryColor: Colors.brown,
               secondaryColor: Colors.brown[900]!,
               text: "Location",
-              onPressed: () {},
+              onPressed: () {
+                Navigator.of(context).pushNamed(LocationScreen.routeName);
+              },
             ),
           ],
         ),

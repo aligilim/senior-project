@@ -1,5 +1,7 @@
 import 'package:covid_app/providers/auth.dart';
+import 'package:covid_app/widgets/admin_home_widget.dart';
 import 'package:covid_app/widgets/doctor_home_widget.dart';
+import 'package:covid_app/widgets/healthcare_home_widget.dart';
 import 'package:covid_app/widgets/patient_home_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:geocoding/geocoding.dart';
@@ -19,9 +21,6 @@ class _HomeScreenState extends State<HomeScreen> {
   void didChangeDependencies() {
     if (isInit) {
       isInit = false;
-      if (Provider.of<Auth>(context, listen: false).user!.location != null) {
-        return;
-      }
       Geolocator.checkPermission().then((value) {
         if (value == LocationPermission.deniedForever) {
           return;
@@ -35,7 +34,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     .then((newPlace) {
                   print(
                       '${newPlace[0].locality}, ${newPlace[0].administrativeArea}, ${newPlace[0].country}');
-                  Provider.of<Auth>(context, listen: false).setUserLocation(
+                  Provider.of<Auth>(context, listen: false)
+                      .setUserCurrentLocation(
                     location:
                         '${newPlace[0].locality}, ${newPlace[0].administrativeArea}, ${newPlace[0].country}',
                     lati: '${position.latitude}',
@@ -58,7 +58,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   .then((newPlace) {
                 print(
                     '${newPlace[0].locality}, ${newPlace[0].administrativeArea}, ${newPlace[0].country}');
-                Provider.of<Auth>(context, listen: false).setUserLocation(
+                Provider.of<Auth>(context, listen: false)
+                    .setUserCurrentLocation(
                   location:
                       '${newPlace[0].locality}, ${newPlace[0].administrativeArea}, ${newPlace[0].country}',
                   lati: '${position.latitude}',
@@ -82,15 +83,27 @@ class _HomeScreenState extends State<HomeScreen> {
     final user = Provider.of<Auth>(context).user!;
     return Scaffold(
       appBar: AppBar(
+        actions: [
+          IconButton(
+            onPressed: () {
+              Provider.of<Auth>(context, listen: false).logout();
+            },
+            icon: Icon(Icons.logout),
+          ),
+        ],
         title: Text('Covid-19 Health Monitoring Application'),
       ),
       body: user.type == 'Patient'
           ? PatientHomeWidget()
           : user.type == 'Doctor'
               ? DoctorHomeWidget()
-              : Center(
-                  child: Text('${user.type} Side!'),
-                ),
+              : user.type == 'Healthcare Personnel'
+                  ? HealthCareHomeWidget()
+                  : user.type == 'Admin'
+                      ? AdminHomeWidget()
+                      : Center(
+                          child: Text('${user.type} Side!'),
+                        ),
     );
   }
 }

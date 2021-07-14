@@ -59,6 +59,5 @@ class GridItemWidget extends StatelessWidget {
         ),
       ),
     );
-    ;
   }
 }

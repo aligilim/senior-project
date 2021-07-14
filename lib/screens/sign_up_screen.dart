@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:covid_app/models/user.dart';
 import 'package:covid_app/providers/auth.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -68,7 +69,11 @@ class _SignUpScreenState extends State<SignUpScreen> {
       await Provider.of<Auth>(context, listen: false).signup(
         _authData['email']!,
         _authData['password']!,
-        userData: _userData,
+        userData: UserData(
+          name: _userData['fullname'],
+          type: _userData['type'],
+          email: _authData['email']!,
+        ),
       );
       Navigator.of(context).pop();
     } on HttpException catch (error) {
@@ -142,7 +147,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       onChanged: (type) {
                         setState(() {
                           selectedType = type;
-                          _authData['type'] = type!;
+                          _userData['type'] = type!;
+                          print(_userData);
                         });
                       },
                     ),
@@ -200,7 +206,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                         keyboardType: TextInputType.visiblePassword,
                         controller: _passwordController,
                         validator: (value) {
-                          if (value!.isEmpty || value.length < 5) {
+                          if (value!.isEmpty || value.length < 6) {
                             return 'Password is too short!';
                           }
                         },

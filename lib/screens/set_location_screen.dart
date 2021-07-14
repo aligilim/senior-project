@@ -1,7 +1,10 @@
 import 'dart:async';
+import 'package:covid_app/providers/auth.dart';
 import 'package:flutter/material.dart';
 import 'package:geocoding/geocoding.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:provider/provider.dart';
 
 class SetLocationScreen extends StatefulWidget {
   static const routeName = '/set-location-screen';
@@ -24,7 +27,69 @@ class _SetLocationScreenState extends State<SetLocationScreen> {
   Completer<GoogleMapController> _controller = Completer();
 
   @override
+  void initState() {
+    Geolocator.checkPermission().then((value) {
+      if (value == LocationPermission.deniedForever) {
+        return;
+      } else if (value == LocationPermission.denied) {
+        Geolocator.requestPermission().then((permission) {
+          if (permission == LocationPermission.whileInUse ||
+              permission == LocationPermission.always) {
+            Geolocator.getCurrentPosition().then((position) {
+              placemarkFromCoordinates(position.latitude, position.longitude,
+                      localeIdentifier: 'en_US')
+                  .then((newPlace) {
+                print(
+                    '${newPlace[0].locality}, ${newPlace[0].administrativeArea}, ${newPlace[0].country}');
+                Provider.of<Auth>(context, listen: false)
+                    .setUserCurrentLocation(
+                  location:
+                      '${newPlace[0].locality}, ${newPlace[0].administrativeArea}, ${newPlace[0].country}',
+                  lati: '${position.latitude}',
+                  longi: '${position.longitude}',
+                );
+              });
+
+              print(
+                'lat: ${position.latitude}, long: ${position.longitude}',
+              );
+            });
+          }
+        });
+      } else if (value == LocationPermission.whileInUse ||
+          value == LocationPermission.always) {
+        Geolocator.getCurrentPosition().then(
+          (position) {
+            placemarkFromCoordinates(position.latitude, position.longitude,
+                    localeIdentifier: 'en_US')
+                .then((newPlace) {
+              print(
+                  '${newPlace[0].locality}, ${newPlace[0].administrativeArea}, ${newPlace[0].country}');
+              Provider.of<Auth>(context, listen: false).setUserCurrentLocation(
+                location:
+                    '${newPlace[0].locality}, ${newPlace[0].administrativeArea}, ${newPlace[0].country}',
+                lati: '${position.latitude}',
+                longi: '${position.longitude}',
+              );
+            });
+
+            print(
+              'lat: ${position.latitude}, long: ${position.longitude}',
+            );
+          },
+        );
+      }
+    });
+    super.initState();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    if (location.isEmpty) {
+      location = Provider.of<Auth>(context).user!.currentLocation ?? '';
+      lat = Provider.of<Auth>(context).user!.currentLati ?? '';
+      long = Provider.of<Auth>(context).user!.currentLongi ?? '';
+    }
     return Scaffold(
       appBar: AppBar(
         title: Text('Set Location'),
@@ -62,7 +127,7 @@ class _SetLocationScreenState extends State<SetLocationScreen> {
                 color: Colors.white,
               ),
               onPressed: () {
-                if (location == null || location == '') {
+                if (location == '') {
                   return;
                 }
                 Navigator.of(ctx).pop([location, lat, long]);
@@ -75,10 +140,13 @@ class _SetLocationScreenState extends State<SetLocationScreen> {
   }
 
   Widget _buildGoogleMap(BuildContext ctx) {
+    final user = Provider.of<Auth>(ctx).user!;
     return Container(
       height: MediaQuery.of(ctx).size.height,
       width: MediaQuery.of(ctx).size.width,
       child: GoogleMap(
+        myLocationButtonEnabled: true,
+        myLocationEnabled: true,
         onTap: (position) async {
           try {
             setState(() {
@@ -99,8 +167,15 @@ class _SetLocationScreenState extends State<SetLocationScreen> {
           }
         },
         zoomControlsEnabled: false,
-        initialCameraPosition:
-            CameraPosition(target: LatLng(widget.lati, widget.longi), zoom: 14),
+        initialCameraPosition: CameraPosition(
+          target: user.currentLocation != null
+              ? LatLng(
+                  double.parse(user.currentLati!),
+                  double.parse(user.currentLongi!),
+                )
+              : LatLng(widget.lati, widget.longi),
+          zoom: 14,
+        ),
         onMapCreated: (GoogleMapController controller) {
           _controller.complete(controller);
         },
@@ -128,7 +203,12 @@ class _SetLocationScreenState extends State<SetLocationScreen> {
             },
             markerId: MarkerId('user-location'),
             position: _pickedLocation == null
-                ? LatLng(widget.lati, widget.longi)
+                ? user.currentLocation != null
+                    ? LatLng(
+                        double.parse(user.currentLati!),
+                        double.parse(user.currentLongi!),
+                      )
+                    : LatLng(widget.lati, widget.longi)
                 : _pickedLocation!,
           ),
         },

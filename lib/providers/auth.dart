@@ -1,9 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'package:covid_app/models/quarantine_item.dart';
 import 'package:covid_app/models/user.dart';
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
+import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class Auth with ChangeNotifier {
@@ -39,7 +42,7 @@ class Auth with ChangeNotifier {
   }
 
   Future<void> signup(String email, String password,
-      {Map<String, String>? userData}) async {
+      {UserData? userData}) async {
     return _authenticate(
       email,
       password,
@@ -49,7 +52,7 @@ class Auth with ChangeNotifier {
   }
 
   Future<void> _authenticate(String email, String password, String urlSegment,
-      {Map<String, String>? userData}) async {
+      {UserData? userData}) async {
     var uri = Uri.https(
       'identitytoolkit.googleapis.com',
       'v1/accounts:$urlSegment',
@@ -97,7 +100,6 @@ class Auth with ChangeNotifier {
       if (urlSegment == 'signUp') {
         await _saveUserData(
           userData!,
-          email,
         );
       } else {
         await getUserData();
@@ -154,20 +156,18 @@ class Auth with ChangeNotifier {
   }
 
   Future<void> logout() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.clear();
     _token = null;
-    _user.id = null;
     _refreshToken = null;
     _expiryDate = null;
+    _user = UserData();
 
     if (_authTimer != null) {
       _authTimer!.cancel();
       _authTimer = null;
     }
     notifyListeners();
-    _user.name = null;
-    _user.type = null;
-    final prefs = await SharedPreferences.getInstance();
-    prefs.clear();
   }
 
   void _autoLogout() {
@@ -182,23 +182,77 @@ class Auth with ChangeNotifier {
     );
   }
 
-  Future<void> _saveUserData(Map<String, String> userData, String email) async {
+  Future<void> _saveUserData(
+    UserData newUserData,
+  ) async {
     var uri = Uri.https(base_url, 'users/${_user.id}.json', {'auth': _token});
     final timestamp = DateTime.now();
     try {
       final response = await http.put(
         uri,
         body: json.encode({
-          'userType': userData['type'],
+          'userType': newUserData.type,
           'joinTime': timestamp.toIso8601String(),
-          'fullname': userData['fullname'],
-          'email': email,
+          'fullname': newUserData.name,
+          'email': newUserData.email,
         }),
       );
       print('save user data: ${response.body}');
-      _user.type = userData['type'];
-      _user.name = userData['fullname'];
-      _user.email = email;
+      if (response.statusCode == 200) {
+        _user.name = newUserData.name;
+        _user.email = newUserData.email;
+        _user.type = newUserData.type;
+        notifyListeners();
+      }
+    } catch (err) {
+      throw err;
+    }
+  }
+
+  Future<bool> savePatientProfile(
+    UserData newUserData,
+  ) async {
+    var uri = Uri.https(base_url, 'users/${_user.id}.json', {'auth': _token});
+    try {
+      final response = await http.put(
+        uri,
+        body: json.encode({
+          'userType': newUserData.type,
+          'joinTime': newUserData.joinDate,
+          'fullname': newUserData.name,
+          'email': newUserData.email,
+          'location': {
+            'location': newUserData.location,
+            'lati': newUserData.lati,
+            'longi': newUserData.longi,
+          },
+          'current_location': {
+            'location': newUserData.currentLocation,
+            'lati': newUserData.currentLati,
+            'longi': newUserData.currentLongi,
+          },
+          'phone': newUserData.phone,
+          'gender': newUserData.gender,
+          'blood_type': newUserData.bloodType,
+          'age': newUserData.age,
+          'occupation': newUserData.occupation,
+          'vaccinated': newUserData.vaccinated,
+          'vaccine_data': newUserData.vaccineData == null
+              ? null
+              : {
+                  'dose': newUserData.vaccineData!.dose,
+                  'dateOfVaccination':
+                      newUserData.vaccineData!.dateOfVaccination,
+                  'vaccineType': newUserData.vaccineData!.vaccineType,
+                },
+        }),
+      );
+      if (response.statusCode >= 400) {
+        return false;
+      }
+      print('save user profile: ${response.body}');
+      await getUserData();
+      return true;
     } catch (err) {
       throw err;
     }
@@ -210,6 +264,9 @@ class Auth with ChangeNotifier {
     try {
       final response = await http.get(uri);
       print('userInfo: ${response.body}');
+      if (response.body == 'null') {
+        return;
+      }
       final data = json.decode(response.body) as Map<String, dynamic>;
       _user.email = data['email'];
       _user.type = data['userType'];
@@ -218,11 +275,29 @@ class Auth with ChangeNotifier {
           data['location'] != null ? data['location']['location'] : null;
       _user.lati = data['location'] != null ? data['location']['lati'] : null;
       _user.longi = data['location'] != null ? data['location']['longi'] : null;
-      // _user.photo = data['photo'];
-      // _user.phone = data['phone'];
-      // _user.bio = data['bio'];
-      // _user.approved = data['approved'] ?? false;
-      // _user.gender = data['gender'] ?? 'UNKNOWN';
+      _user.currentLocation = data['current_location'] != null
+          ? data['current_location']['location']
+          : null;
+      _user.currentLati = data['current_location'] != null
+          ? data['current_location']['lati']
+          : null;
+      _user.currentLongi = data['current_location'] != null
+          ? data['current_location']['longi']
+          : null;
+      _user.age = data['age'];
+      _user.bloodType = data['blood_type'];
+      _user.phone = data['phone'];
+      _user.gender = data['gender'];
+      _user.occupation = data['occupation'];
+      _user.joinDate = data['joinTime'];
+      _user.vaccinated = data['vaccinated'] ?? false;
+      _user.vaccineData = data['vaccine_data'] == null
+          ? null
+          : VaccineData(
+              dose: data['vaccine_data']['dose'],
+              dateOfVaccination: data['vaccine_data']['dateOfVaccination'],
+              vaccineType: data['vaccine_data']['vaccineType'],
+            );
       notifyListeners();
     } catch (err) {
       throw err;
@@ -255,7 +330,33 @@ class Auth with ChangeNotifier {
     return true;
   }
 
-  Future<void> setUserLocation({
+  Future<void> addQuarantineItem(QuarantineItem item) async {
+    if (_user.type != 'Patient') {
+      return;
+    }
+    var uri = Uri.https(
+      base_url,
+      'quarantine/${_user.id}.json',
+      {'auth': _token},
+    );
+    try {
+      final response = await http.post(
+        uri,
+        body: json.encode({
+          'date': item.date,
+          'isHome': item.isHome,
+          'latitude': item.latitude,
+          'location': item.location,
+          'longitude': item.longitude,
+        }),
+      );
+      print('${response.body}');
+    } catch (err) {
+      throw err;
+    }
+  }
+
+  Future<void> setUserCurrentLocation({
     required String location,
     required String lati,
     required String longi,
@@ -263,13 +364,13 @@ class Auth with ChangeNotifier {
     if (_user.id == null) {
       return;
     }
-    _user.location = location;
-    _user.lati = lati;
-    _user.longi = longi;
+    _user.currentLocation = location;
+    _user.currentLati = lati;
+    _user.currentLongi = longi;
     notifyListeners();
     var uri = Uri.https(
       base_url,
-      'users/${_user.id}/location.json',
+      'users/${_user.id}/current_location.json',
       {'auth': _token},
     );
     try {
@@ -282,6 +383,22 @@ class Auth with ChangeNotifier {
         }),
       );
       print('save user location: ${response.body}');
+
+      addQuarantineItem(
+        QuarantineItem(
+          date: DateFormat.yMMMd().add_jm().format(DateTime.now()),
+          isHome: Geolocator.distanceBetween(
+                double.parse(_user.currentLati ?? '0.0'),
+                double.parse(_user.currentLongi ?? '0.0'),
+                double.parse(_user.lati ?? '0.0'),
+                double.parse(_user.longi ?? '0.0'),
+              ) <=
+              20,
+          latitude: lati,
+          location: location,
+          longitude: longi,
+        ),
+      );
     } catch (err) {
       print('error: $err');
       throw err;
